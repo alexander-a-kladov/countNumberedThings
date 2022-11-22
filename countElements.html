@@ -68,7 +68,8 @@ p1 {
      </script>
      <script>
            	 counters = [];
-             const spacePad = (num, places) => String(num).padStart(places, '0')
+             const spacePad = (num, places) => String(num).padStart(places, '0');
+             var colors_buttons = ['gray','red','orange','gold','green','cyan','blue','purple'];
              const rows = 15;
              const cols = 30;
              var p_text;
@@ -97,9 +98,13 @@ p1 {
                       btn.addEventListener("click", function(event) {
   			    var index = event.target.id-1;
   			    counters[index] = counters[index] + 1;
-  			    var button = document.getElementById(event.target.id)
-  			    button.innerText = counters[index]
-  			    button.style.backgroundColor = 'green';
+  			    var button = document.getElementById(event.target.id);
+  			    button.innerText = counters[index];
+                if (counters[index]>7) {
+                    button.style.backgroundColor = 'purple';
+                } else {
+                    button.style.backgroundColor = colors_buttons[counters[index]];
+                }
                 button.style.color = 'white';
   			});                    
   			p.appendChild(btn)
