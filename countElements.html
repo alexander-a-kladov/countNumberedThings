@@ -1,11 +1,11 @@
 <!doctype html>
 <style>
 button {
-      width: 50px;
-      height: 40px;
+      width: 40px;
+      height: 30px;
     }
 p1 {
-	padding: 5px 5px 0px 21px;
+	padding: 5px 5px 0px 11px;
     font-size: 10pt;
     font-family: monospace;
     }
@@ -23,7 +23,7 @@ p1 {
 </style>
 <html>
      <head>
-          <title>Count Things</title>
+          <title>Count Numbered Things</title>
      </head>
      <script>
     let tooltipElem;
@@ -69,19 +69,97 @@ p1 {
      <script>
            	 counters = [];
              const spacePad = (num, places) => String(num).padStart(places, '0');
-             var colors_buttons = ['gray','red','orange','gold','green','cyan','blue','purple'];
-             const rows = 15;
-             const cols = 30;
+             var colors_buttons = ['gray','deeppink','orange','gold','green','turquoise','blue','purple'];
+             var cards_quantity = 0;
              var p_text;
              var t1;
-                function printBtn() {
+             var summaryText;
+             var rows = 25;
+             var cols = 25;
+            
+            function changeBtn(id) {
+                var button = document.getElementById(id);
+                index = id - 1;
+                button.innerText = counters[index];
+                if (counters[index]>7) {
+                    button.style.backgroundColor = 'purple';
+                } else {
+                    button.style.backgroundColor = colors_buttons[counters[index]];
+                }
+                button.style.color = 'white';
+            }
+
+            function updateSummary() {
+                summaryText.innerText = cards_quantity.toString();
+            } 
+            
+            function clickBtn(event) {
+                var index = event.target.id-1;
+                if (event.ctrlKey) {
+                    if (counters[index]>0) {counters[index]--;cards_quantity--;}
+                } else {
+                    if (counters[index]<9999) {
+                    counters[index]++;
+                    cards_quantity++;
+                }
+                }
+                changeBtn(event.target.id);
+                updateSummary();
+            }
+
+            function getUrlClick(event) {
+                var firstItem = true;
+                var url = window.location.href.split("?")[0]+"?";
+                url += "rows="+rows.toString()+"&cols="+cols.toString();
+                if (cards_quantity) {
+                    url += "&items={";
+                    for (index=1;index<=rows*cols;index++) {
+                        if (counters[index-1]) {
+                            if (!firstItem) url+=",";
+                            url+='"'+index.toString()+'":'+counters[index-1].toString();
+                            firstItem=false;
+                        }
+                    }
+                    url+="}";
+                }
+                navigator.clipboard.writeText(url)
+                .then(() => {
+                console.log('Copy to clipboard='+url);
+                    })
+                .catch(err => {
+                console.log('Something went wrong', err);
+                });
+            }
+            
+            function summaryInfo() {
+                    p_text = document.createElement("p1");
+                    t1 = document.createTextNode("Всего:");
+                    p_text.appendChild(t1);
+                    document.body.appendChild(p_text);
+                    summaryText = document.createElement("p1");
+                    t1 = document.createTextNode("");
+                    summaryText.appendChild(t1);
+                    document.body.appendChild(summaryText);
+            }
+
+            function getUrlCreate() {
+                var p_url = document.createElement("p");
+                var get_url_btn = document.createElement("button");
+                get_url_btn.addEventListener("click", getUrlClick);
+                get_url_btn.innerText = "GetIt";
+                get_url_btn.setAttribute('data-tooltip',"copy to Clipboard");
+                p_url.appendChild(get_url_btn);
+                document.body.appendChild(p_url);
+            }
+
+            function printBtn() {
                 p_text = document.createElement("p1");
                 t1 = document.createTextNode("   ");
                 p_text.appendChild(t1);
                 document.body.appendChild(p_text);
                     for (var i = 0; i < rows; i++) {
                        var number = i*cols;
-                       const p = document.createElement("p");
+                       const p = document.createElement("div");
                        var t2 = document.createTextNode(spacePad(number,3));
                        p.appendChild(t2);
                     for (var j = 0; j < cols; j++) {
@@ -95,25 +173,48 @@ p1 {
                       // btn.appendChild(t);
                       btn.innerText = 0;
                       btn.setAttribute('data-tooltip',number.toString());
-                      btn.addEventListener("click", function(event) {
-  			    var index = event.target.id-1;
-  			    counters[index] = counters[index] + 1;
-  			    var button = document.getElementById(event.target.id);
-  			    button.innerText = counters[index];
-                if (counters[index]>7) {
-                    button.style.backgroundColor = 'purple';
-                } else {
-                    button.style.backgroundColor = colors_buttons[counters[index]];
-                }
-                button.style.color = 'white';
-  			});                    
-  			p.appendChild(btn)
+                      btn.addEventListener("click", clickBtn);                    
+  			           p.appendChild(btn)
                        }
-                        document.body.appendChild(p)
+                        document.body.appendChild(p);
                     }
                 }
-                
-                window.onload = printBtn
+
+            function fillElements(items) {
+                    for (const index in items)
+                    {
+                        if (index>=0 && index<rows*cols && items[index]>=0 && items[index]<=9999)
+                        {
+                            console.log(`${index}:${items[index]}`)
+                            counters[Number(index)-1]=items[index];
+                            cards_quantity+=items[index];
+                            changeBtn(Number(index));
+                        }
+                    }
+            }
+
+            function main() {
+                url_parameters = new URLSearchParams(window.location.search);
+                if (url_parameters.has('rows')) {
+                    rows = url_parameters.get('rows');
+                    if (rows<=0 || rows>50) rows = 25;
+                }
+                if (url_parameters.has('cols')) {
+                    cols = url_parameters.get('cols');
+                    if (cols<=0 || cols>50) cols = 25;
+                }
+                printBtn(rows, cols);
+                summaryInfo();
+                getUrlCreate();
+                if (url_parameters.has('items'))
+                {
+                    const items = JSON.parse(url_parameters.get('items'));
+                    fillElements(items);
+                }
+                updateSummary();
+            }
+   
+            window.onload = main
       </script>  
      <body>
            
