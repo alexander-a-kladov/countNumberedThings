@@ -68,18 +68,25 @@ p1 {
      </script>
      <script>
            	 counters = [];
-             const spacePad = (num, places) => String(num).padStart(places, '0');
+             const zeroPad = (num, places) => String(num).padStart(places, '0');
+             const spacePad = (num, places) => String(num).padStart(places, "");
              var colors_buttons = ['gray','deeppink','orange','gold','green','turquoise','blue','purple'];
              var cards_quantity = 0;
              var p_text;
              var t1;
              var summaryText;
+             var unblocked_items = new Map();
              var rows = 25;
              var cols = 25;
+             var setName='';
             
             function changeBtn(id) {
                 var button = document.getElementById(id);
+                if (!button) return;
                 index = id - 1;
+                if (unblocked_items.size && !unblocked_items.has(id)) {
+                    return;
+                }
                 button.innerText = counters[index];
                 if (counters[index]>7) {
                     button.style.backgroundColor = 'purple';
@@ -90,11 +97,15 @@ p1 {
             }
 
             function updateSummary() {
-                summaryText.innerText = cards_quantity.toString();
+                summaryText.innerText = spacePad(cards_quantity, 20);
             } 
             
             function clickBtn(event) {
                 var index = event.target.id-1;
+                if (unblocked_items.size && !unblocked_items.has(event.target.id))
+                {
+                    return;
+                }
                 if (event.ctrlKey) {
                     if (counters[index]>0) {counters[index]--;cards_quantity--;}
                 } else {
@@ -111,16 +122,18 @@ p1 {
                 var firstItem = true;
                 var url = window.location.href.split("?")[0]+"?";
                 url += "rows="+rows.toString()+"&cols="+cols.toString();
+                if (setName.length>0) {url+="&mtgset="+setName;}
                 if (cards_quantity) {
-                    url += "&items={";
+                    var json_items = "{";
                     for (index=1;index<=rows*cols;index++) {
                         if (counters[index-1]) {
-                            if (!firstItem) url+=",";
-                            url+='"'+index.toString()+'":'+counters[index-1].toString();
+                            if (!firstItem) json_items+=",";
+                            json_items+='"'+index.toString()+'":'+counters[index-1].toString();
                             firstItem=false;
                         }
                     }
-                    url+="}";
+                    json_items+="}";
+                    url += "&items="+json_items;
                 }
                 navigator.clipboard.writeText(url)
                 .then(() => {
@@ -132,14 +145,16 @@ p1 {
             }
             
             function summaryInfo() {
-                    p_text = document.createElement("p1");
+                    p_text = document.createElement("p");
+                    t1 = document.createTextNode('Set:'+setName+' ');
+                    p_text.appendChild(t1);
                     t1 = document.createTextNode("Всего:");
                     p_text.appendChild(t1);
-                    document.body.appendChild(p_text);
-                    summaryText = document.createElement("p1");
+                    summaryText = document.createElement("b");
                     t1 = document.createTextNode("");
                     summaryText.appendChild(t1);
-                    document.body.appendChild(summaryText);
+                    p_text.appendChild(summaryText);
+                    document.body.appendChild(p_text);
             }
 
             function getUrlCreate() {
@@ -160,18 +175,19 @@ p1 {
                     for (var i = 0; i < rows; i++) {
                        var number = i*cols;
                        const p = document.createElement("div");
-                       var t2 = document.createTextNode(spacePad(number,3));
+                       var t2 = document.createTextNode(zeroPad(number,3));
                        p.appendChild(t2);
                     for (var j = 0; j < cols; j++) {
                        counters.push(0)
                        if (!i) {p_text = document.createElement("p1")}
                        number = i*cols + j + 1;
-                        if (!i) {t1 = document.createTextNode(spacePad(number,3));p_text.appendChild(t1);document.body.appendChild(p_text);}
+                        if (!i) {t1 = document.createTextNode(zeroPad(number,3));
+                        p_text.appendChild(t1);document.body.appendChild(p_text);}
                        var btn = document.createElement("button");
                        btn.setAttribute('id',number.toString())
                       // var t = document.createTextNode(counters[number-1].toString());
                       // btn.appendChild(t);
-                      btn.innerText = 0;
+                      btn.innerText = '*';
                       btn.setAttribute('data-tooltip',number.toString());
                       btn.addEventListener("click", clickBtn);                    
   			           p.appendChild(btn)
@@ -185,12 +201,51 @@ p1 {
                     {
                         if (index>=0 && index<rows*cols && items[index]>=0 && items[index]<=9999)
                         {
-                            console.log(`${index}:${items[index]}`)
+                            //console.log(`${index}:${items[index]}`)
                             counters[Number(index)-1]=items[index];
                             cards_quantity+=items[index];
                             changeBtn(Number(index));
                         }
                     }
+            }
+
+            function getSetData(rest_request) {
+                fetch(rest_request)
+                .then(response => {
+                // indicates whether the response is successful (status code 200-299) or not
+                if (!response.ok) {
+                    throw new Error(`Request failed with status ${reponse.status}`)
+                }
+                return response.json()
+                })
+                .then(data => {
+                console.log(data.total_cards);
+                console.log(data.has_more);
+                var number = 0;
+                var tooltip = "";
+                while (data.data[number]) {
+                    id = data.data[number].collector_number;
+                    var btn = document.getElementById(id);
+                    tooltip = '<div>'+data.data[number].name+':'+data.data[number].rarity[0].toUpperCase()+':'+id+'</div>';
+                    if (data.data[number].card_faces) {
+                        tooltip+='<img src='+data.data[number].card_faces[0].image_uris.small+'/>';
+                        tooltip+='<img src='+data.data[number].card_faces[1].image_uris.small+'/>';
+
+                    } else {
+                        tooltip+='<img src='+data.data[number].image_uris.small+'/>';
+                    }
+                    if (btn) {btn.setAttribute('data-tooltip', tooltip);}
+                    unblocked_items.set(id,true);
+                    changeBtn(id);
+                    //console.log(data.data[number].collector_number);
+                    number++;
+                }
+                if (data.has_more) {
+                    console.log(data.next_page);
+                     getSetData(data.next_page);
+                }
+                })
+                .catch(error => console.log(error))
             }
 
             function main() {
@@ -203,12 +258,28 @@ p1 {
                     cols = url_parameters.get('cols');
                     if (cols<=0 || cols>50) cols = 25;
                 }
-                printBtn(rows, cols);
+                
+                if (url_parameters.has('mtgset')) {
+                    setName = url_parameters.get('mtgset');
+                }
                 summaryInfo();
+                printBtn(rows, cols);
+
+                if (setName.length>0) {
+                    getSetData(`https://api.scryfall.com/cards/search?q=set%3A${setName}&unique=prints`);
+                }
+
                 getUrlCreate();
                 if (url_parameters.has('items'))
                 {
-                    const items = JSON.parse(url_parameters.get('items'));
+                    var items;
+                    //console.log("items first symbol = "+url_parameters.get('items')[0]);
+                    if (url_parameters.get('items')[0] === '{') {
+                        items = JSON.parse(url_parameters.get('items'));
+                    } 
+                    /*else {
+                        items = JSON.parse(window.atob(url_parameters.get('items')));
+                    }*/
                     fillElements(items);
                 }
                 updateSummary();
